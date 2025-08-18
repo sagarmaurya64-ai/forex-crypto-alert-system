@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="manifest" href="manifest.json">
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -42,6 +43,14 @@
     });
   </script>
 </head>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js")
+    .then(function(reg) {
+      console.log("Service worker registered.", reg);
+    });
+}
+</script>
 <body>
   <h2>Pro Multi-Symbol Alerts (Desktop & Mobile, Push Enabled)</h2>
   <div id="topbar">
