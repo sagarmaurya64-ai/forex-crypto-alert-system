@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "06d1f636-1d72-440b-acb3-ca06fe633d53",
+    });
+  });
+</script>
+
+  <meta charset="UTF-8">
+  <title>Pro Alert System - OneSignal Push</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 12px; background: #f7f7f7; }
+    #topbar { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap:5px; align-items: center;}
+    input, button { padding: 7px; font-size: 1rem; }
+    #alertlist { margin-top: 10px; }
+    .alert-item { background: #fff; border: 1px solid #ddd; border-radius: 5px; padding: 5px 12px; display: inline-block; margin: 3px;}
+    .remove-btn { color: red; background: none; border: none; font-size: 18px; vertical-align: top; cursor: pointer;}
+    @media (max-width: 600px) {
+      h2 { font-size: 1.2em;}
+      input, button { font-size: .95em;}
+      #tradingview_chart { height: 350px !important;}
+    }
+  </style>
+  <!-- OneSignal SDK -->
+  <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
+  <script>
+    window.OneSignal = window.OneSignal || [];
+    OneSignal.push(function() {
+      OneSignal.init({
+        appId: "YOUR_ONESIGNAL_APP_ID",
+        notifyButton: {
+          enable: true,
+        },
+        allowLocalhostAsSecureOrigin: true // allow testing locally with localhost
+      });
+    });
+  </script>
+</head>
+<body>
+  <h2>Pro Multi-Symbol Alerts (Desktop & Mobile, Push Enabled)</h2>
+  <div id="topbar">
+    <label>Symbol: 
+      <input id="symbol" value="EURUSD" style="width:90px;">
+    </label>
+    <button onclick="setSymbol()">Load Chart</button>
+    <label> Alert price: 
+      <input type="number" id="alertPrice" step="any" style="width:85px;">
+    </label>
+    <button onclick="addAlert()">Add Alert</button>
+    <button onclick="subscribeNotifications()">🔔 Enable Push</button>
+  </div>
+  <div>
+    <b>Your Alerts for <span id="currentSymbol">EURUSD</span>:</b>
+    <div id="alertlist"></div>
+  </div>
+  <div class="tradingview-widget-container" style="height:420px;"><div id="tradingview_chart" style="height:400px;"></div></div>
+
+  <script>
+    let currentSymbol = "EURUSD";
+    let intervalId = null;
+    let alertData = {};
+    let priceAPI = {
+      forex: (base, quote) => `https://api.exchangerate.host/latest?base=${base}&symbols=${quote}`,
+      binance: (sym) => `https://api.binance.com/api/v3/ticker/price?symbol=${sym}`
+    };
+
+    function loadStoredAlerts() {
+      let saved = localStorage.getItem('alertData');
+      if (saved) alertData = JSON.parse(saved);
+    }
+    function saveStoredAlerts() {
+      localStorage.setItem('alertData', JSON.stringify(alertData));
+    }
+    function renderAlerts() {
+      let el = document.getElementById('alertlist');
+      el.innerHTML = '';
+      (alertData[currentSymbol] || []).forEach((price, i) => {
+        let span = document.createElement('span');
+        span.className = 'alert-item';
+        span.textContent = price;
+        let rm = document.createElement('button');
+        rm.textContent = '×';
+        rm.className = 'remove-btn';
+        rm.onclick = () => removeAlert(i);
+        span.appendChild(rm);
+        el.appendChild(span);
+      });
+    }
+    function addAlert() {
+      let price = parseFloat(document.getElementById('alertPrice').value);
+      if (!price || isNaN(price)) { alert("Enter valid price!"); return; }
+      if (!alertData[currentSymbol]) alertData[currentSymbol] = [];
+      alertData[currentSymbol].push(price);
+      saveStoredAlerts();
+      renderAlerts();
+      document.getElementById('alertPrice').value = '';
+    }
+    function removeAlert(idx) {
+      alertData[currentSymbol].splice(idx,1);
+      saveStoredAlerts();
+      renderAlerts();
+    }
+    function setSymbol() {
+      currentSymbol = document.getElementById('symbol').value.toUpperCase();
+      document.getElementById('currentSymbol').innerText = currentSymbol;
+      renderAlerts();
+      document.getElementById('tradingview_chart').innerHTML = '';
+      loadChart(currentSymbol);
+    }
+
+    async function checkPrice() {
+      let sym = currentSymbol;
+      let price = null, isCrypto = false, base, quote, url;
+      if (sym.endsWith('USDT') || sym.startsWith('BTC') || sym.startsWith('ETH') || sym.startsWith('BNB')) {
+        url = priceAPI.binance(sym);
+        isCrypto = true;
+      } else if (/^[A-Z]{6}$/i.test(sym)) {
+        base = sym.slice(0,3);
+        quote = sym.slice(3,6);
+        url = priceAPI.forex(base, quote);
+      } else return;
+
+      try {
+        let res = await fetch(url);
+        let data = await res.json();
+        if (isCrypto) {
+          price = parseFloat(data.price);
+        } else {
+          price = data.rates[quote];
+        }
+      } catch (e) {
+        price = null;
+      }
+      if (!price) return;
+
+      // For all user-set alerts
+      (alertData[currentSymbol] || []).forEach((ap, i) => {
+        let diff = Math.abs(price - ap);
+        let thresh = price > 100 ? 0.05 : price > 10 ? 0.01 : 0.001;
+        if (diff < thresh) {
+          // Native browser notification
+          new Audio("https://www.soundjay.com/button/beep-07.wav").play();
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${currentSymbol} price is ${price}`));
+          OneSignal.push(function() {
+            OneSignal.sendSelfNotification(
+              "TradingView-Style Alert", // Title
+              `Price Alert: ${currentSymbol} is now ${price}`, // Message
+              '', // URL (blank means stay on page)
+              null // Icon
+            );
+          });
+          alertData[currentSymbol].splice(i,1);
+          saveStoredAlerts();
+          renderAlerts();
+        }
+      });
+    }
+
+    // For browser (fallback) notifications
+    function subscribeNotifications() {
+      // triggers OneSignal permission modal again
+      OneSignal.push(function() {
+        OneSignal.showHttpPrompt();
+      });
+    }
+    // TradingView chart loader
+    function loadChart(symbol) {
+      if (document.getElementById('tradingview-script')) document.getElementById('tradingview-script').remove();
+      let script = document.createElement('script');
+      script.id = 'tradingview-script';
+      script.type = 'text/javascript';
+      script.src = 'https://s3.tradingview.com/tv.js';
+      document.body.appendChild(script);
+
+      script.onload = function() {
+        new TradingView.widget({
+          "width": "100%",
+          "height": 400,
+          "symbol": symbol,
+          "interval": "15",
+          "timezone": "Etc/UTC",
+          "theme": "light",
+          "style": "1",
+          "locale": "en",
+          "toolbar_bg": "#f1f3f6",
+          "container_id": "tradingview_chart",
+          "allow_symbol_change": true
+        });
+      };
+    }
+
+    loadStoredAlerts();
+    renderAlerts();
+    loadChart(currentSymbol);
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(checkPrice, 8000);
+
+    document.getElementById('symbol').addEventListener('change',function(){
+      currentSymbol = this.value.toUpperCase();
+      document.getElementById('currentSymbol').innerText = currentSymbol;
+      renderAlerts();
+    });
+  </script>
+</body>
+</html>
