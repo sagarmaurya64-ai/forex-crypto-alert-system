@@ -2,48 +2,11 @@
 <html lang="en">
 <head>
   <link rel="manifest" href="manifest.json">
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "06d1f636-1d72-440b-acb3-ca06fe633d53",
-    });
-  });
-</script>
-
   <meta charset="UTF-8">
-  <title>Pro Alert System - OneSignal Push</title>
+  <title>Pro TradingView Alerts (Full Features, Dark Mode)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 12px; background: #f7f7f7; }
-    #topbar { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap:5px; align-items: center;}
-    input, button { padding: 7px; font-size: 1rem; }
-    #alertlist { margin-top: 10px; }
-    .alert-item { background: #fff; border: 1px solid #ddd; border-radius: 5px; padding: 5px 12px; display: inline-block; margin: 3px;}
-    .remove-btn { color: red; background: none; border: none; font-size: 18px; vertical-align: top; cursor: pointer;}
-    @media (max-width: 600px) {
-      h2 { font-size: 1.2em;}
-      input, button { font-size: .95em;}
-      #tradingview_chart { height: 350px !important;}
-    }
-  </style>
-  <!-- OneSignal SDK -->
-  <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
-  <script>
-    window.OneSignal = window.OneSignal || [];
-    OneSignal.push(function() {
-      OneSignal.init({
-        appId: "YOUR_ONESIGNAL_APP_ID",
-        notifyButton: {
-          enable: true,
-        },
-        allowLocalhostAsSecureOrigin: true // allow testing locally with localhost
-      });
-    });
-  </script>
-</head>
-<script>
+    <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js")
     .then(function(reg) {
@@ -51,8 +14,65 @@ if ("serviceWorker" in navigator) {
     });
 }
 </script>
+    body {
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background: #181A20; 
+      color: #eee;
+    }
+    #topbar {
+      margin: 0; 
+      padding: 18px 16px 10px 16px;
+      background: #23252e;
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 9px; 
+      align-items: center;
+    }
+    input, button {
+      padding: 7px; 
+      font-size: 1rem; 
+      border-radius: 3px;
+      border: none;
+      margin: 2px 0;
+      background: #222;
+      color: #eee;
+    }
+    input { border: 1px solid #333;}
+    button {
+      background: #2999f4; 
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    button:active { background: #1762a7; }
+    #alertlist { margin: 14px 16px 0 16px;}
+    .alert-item {
+      background: #212634; 
+      border: 1px solid #333; 
+      border-radius: 5px; 
+      padding: 5px 12px; 
+      display: inline-block; 
+      margin: 5px 5px 0 0;
+      color: #36e8b7;
+    }
+    .remove-btn {
+      color: #f96a6a; 
+      background: none; 
+      border: none; 
+      font-size: 18px; 
+      vertical-align: top; 
+      cursor: pointer;
+      margin-left: 5px;
+    }
+    @media (max-width: 700px) {
+      #topbar { flex-direction: column; align-items: start; }
+    }
+  </style>
+</head>
 <body>
-  <h2>Pro Multi-Symbol Alerts (Desktop & Mobile, Push Enabled)</h2>
   <div id="topbar">
     <label>Symbol: 
       <input id="symbol" value="EURUSD" style="width:90px;">
@@ -62,19 +82,22 @@ if ("serviceWorker" in navigator) {
       <input type="number" id="alertPrice" step="any" style="width:85px;">
     </label>
     <button onclick="addAlert()">Add Alert</button>
-    <button onclick="subscribeNotifications()">🔔 Enable Push</button>
   </div>
-  <div>
-    <b>Your Alerts for <span id="currentSymbol">EURUSD</span>:</b>
-    <div id="alertlist"></div>
+  <div id="alertlist">
+    <b>Your Alerts for <span id="currentSymbol" style="color:#f7b731">EURUSD</span>:</b>
+    <div id="alertsArea"></div>
   </div>
-  <div class="tradingview-widget-container" style="height:420px;"><div id="tradingview_chart" style="height:400px;"></div></div>
+  <!-- TradingView Advanced Chart Widget BEGIN -->
+  <div class="tradingview-widget-container" style="margin:24px 0 0 0;">
+    <div id="tradingview_chart" style="height:600px;"></div>
+  </div>
+  <!-- TradingView Advanced Chart Widget END -->
 
   <script>
     let currentSymbol = "EURUSD";
     let intervalId = null;
     let alertData = {};
-    let priceAPI = {
+    const priceAPI = {
       forex: (base, quote) => `https://api.exchangerate.host/latest?base=${base}&symbols=${quote}`,
       binance: (sym) => `https://api.binance.com/api/v3/ticker/price?symbol=${sym}`
     };
@@ -87,7 +110,7 @@ if ("serviceWorker" in navigator) {
       localStorage.setItem('alertData', JSON.stringify(alertData));
     }
     function renderAlerts() {
-      let el = document.getElementById('alertlist');
+      let el = document.getElementById('alertsArea');
       el.innerHTML = '';
       (alertData[currentSymbol] || []).forEach((price, i) => {
         let span = document.createElement('span');
@@ -122,7 +145,6 @@ if ("serviceWorker" in navigator) {
       document.getElementById('tradingview_chart').innerHTML = '';
       loadChart(currentSymbol);
     }
-
     async function checkPrice() {
       let sym = currentSymbol;
       let price = null, isCrypto = false, base, quote, url;
@@ -134,7 +156,6 @@ if ("serviceWorker" in navigator) {
         quote = sym.slice(3,6);
         url = priceAPI.forex(base, quote);
       } else return;
-
       try {
         let res = await fetch(url);
         let data = await res.json();
@@ -143,73 +164,62 @@ if ("serviceWorker" in navigator) {
         } else {
           price = data.rates[quote];
         }
-      } catch (e) {
-        price = null;
-      }
+      } catch (e) { price = null; }
       if (!price) return;
-
-      // For all user-set alerts
       (alertData[currentSymbol] || []).forEach((ap, i) => {
         let diff = Math.abs(price - ap);
         let thresh = price > 100 ? 0.05 : price > 10 ? 0.01 : 0.001;
         if (diff < thresh) {
-          // Native browser notification
+          alert(`Price alert for ${currentSymbol}: ${price}`);
           new Audio("https://www.soundjay.com/button/beep-07.wav").play();
           window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${currentSymbol} price is ${price}`));
-          OneSignal.push(function() {
-            OneSignal.sendSelfNotification(
-              "TradingView-Style Alert", // Title
-              `Price Alert: ${currentSymbol} is now ${price}`, // Message
-              '', // URL (blank means stay on page)
-              null // Icon
-            );
-          });
           alertData[currentSymbol].splice(i,1);
           saveStoredAlerts();
           renderAlerts();
         }
       });
     }
-
-    // For browser (fallback) notifications
-    function subscribeNotifications() {
-      // triggers OneSignal permission modal again
-      OneSignal.push(function() {
-        OneSignal.showHttpPrompt();
-      });
-    }
-    // TradingView chart loader
     function loadChart(symbol) {
-      if (document.getElementById('tradingview-script')) document.getElementById('tradingview-script').remove();
+      // Remove existing widget if any
+      if (document.getElementById('tradingview-script')) {
+        document.getElementById('tradingview-script').remove();
+      }
       let script = document.createElement('script');
       script.id = 'tradingview-script';
       script.type = 'text/javascript';
       script.src = 'https://s3.tradingview.com/tv.js';
       document.body.appendChild(script);
-
       script.onload = function() {
         new TradingView.widget({
+          "container_id": "tradingview_chart",
           "width": "100%",
-          "height": 400,
+          "height": 600,
           "symbol": symbol,
           "interval": "15",
           "timezone": "Etc/UTC",
-          "theme": "light",
+          "theme": "dark",
           "style": "1",
           "locale": "en",
-          "toolbar_bg": "#f1f3f6",
-          "container_id": "tradingview_chart",
-          "allow_symbol_change": true
+          "toolbar_bg": "#23252e",
+          "saved_data": false,
+          "enable_publishing": false,
+          "allow_symbol_change": true,
+          "details": true,
+          "calendar": true,
+          "studies": [],
+          "withdateranges": true,
+          "hide_side_toolbar": false,
+          "show_popup_button": true,
+          "popup_width": "1000",
+          "popup_height": "650"
         });
       };
     }
-
     loadStoredAlerts();
     renderAlerts();
     loadChart(currentSymbol);
     if (intervalId) clearInterval(intervalId);
     intervalId = setInterval(checkPrice, 8000);
-
     document.getElementById('symbol').addEventListener('change',function(){
       currentSymbol = this.value.toUpperCase();
       document.getElementById('currentSymbol').innerText = currentSymbol;
