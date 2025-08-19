@@ -1,314 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="manifest" href="manifest.json">
   <meta charset="UTF-8">
-  <title>Pro TradingView Alerts (Full Features, Dark Mode)</title>
+  <title>Pro Multi-Pane Trading with Watchlists</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    <script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js")
-    .then(function(reg) {
-      console.log("Service worker registered.", reg);
-    });
-}// sw.js
-
-const CACHE_NAME = 'alerts-pwa-cache-v2';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
-];
-
-// On install: Pre-cache static assets
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS))
-      .then(self.skipWaiting())
-  );
-});
-
-// On activate: Clean up old caches
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
-      )
-    )
-  );
-  self.clients.claim();
-});
-
-// On fetch: Respond from cache first, fallback to network, cache new requests
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) return response;
-        return fetch(event.request)
-          .then(networkRes => {
-            // Only cache successful responses for GETs (not POST, etc)
-            if (
-              event.request.method === 'GET' &&
-              networkRes &&
-              networkRes.status === 200 &&
-              (networkRes.type === 'basic' || networkRes.type === 'cors')
-            ) {
-              let resClone = networkRes.clone();
-              caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
-            }
-            return networkRes;
-          })
-          .catch(() => {
-            // Fallback logic: Return a simple offline page or asset
-            if (event.request.destination === 'document') {
-              return caches.match('/index.html');
-            }
-          });
-      })
-  );
-});
-
-// Listen for skipWaiting to update service worker immediately
-self.addEventListener('message', event => {
-  if (event.data && event.data.action === 'skipWaiting') {
-    self.skipWaiting();
-  }
-});
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then(function(reg) {
-    reg.addEventListener('updatefound', function() {
-      const newSW = reg.installing;
-      newSW.addEventListener('statechange', function() {
-        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-          if (confirm("New version available. Refresh to update?")) {
-            window.location.reload();
-          }
-        }
-      });
-    });
-  });
-}
-</script>
-    body {
-      font-family: Arial, sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      background: #181A20; 
-      color: #eee;
-    }
-    #topbar {
-      margin: 0; 
-      padding: 18px 16px 10px 16px;
-      background: #23252e;
-      display: flex; 
-      flex-wrap: wrap; 
-      gap: 9px; 
-      align-items: center;
-    }
-    input, button {
-      padding: 7px; 
-      font-size: 1rem; 
-      border-radius: 3px;
-      border: none;
-      margin: 2px 0;
-      background: #222;
-      color: #eee;
-    }
-    input { border: 1px solid #333;}
-    button {
-      background: #2999f4; 
-      color: #fff;
-      font-weight: bold;
-      cursor: pointer;
-      border: none;
-    }
-    button:active { background: #1762a7; }
-    #alertlist { margin: 14px 16px 0 16px;}
-    .alert-item {
-      background: #212634; 
-      border: 1px solid #333; 
-      border-radius: 5px; 
-      padding: 5px 12px; 
-      display: inline-block; 
-      margin: 5px 5px 0 0;
-      color: #36e8b7;
-    }
-    .remove-btn {
-      color: #f96a6a; 
-      background: none; 
-      border: none; 
-      font-size: 18px; 
-      vertical-align: top; 
-      cursor: pointer;
-      margin-left: 5px;
-    }
-    @media (max-width: 700px) {
-      #topbar { flex-direction: column; align-items: start; }
-    }
+    :root { --bg: #181a20; --panel: #20222b; --accent: #199cf4; --border-focus: #36e8b7; --text: #eee;}
+    html,body{height:100%;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;}
+    .layout{display:flex;height:100vh;}
+    .main{flex:1;display:flex;flex-direction:column;}
+    .topbar{display:flex;align-items:center;gap:22px;padding:14px 18px 8px 22px;background:var(--panel);}
+    .app-title{font-size:20px;font-weight:600;}
+    .layout-switch{margin-left:auto;}
+    .layout-btn{background:var(--bg);border:1px solid #222;color:var(--accent);padding:5px 14px;border-radius:7px;font-size:16px;margin-left:8px;cursor:pointer;}
+    .layout-btn.active{background:var(--accent);color:#fff;}
+    .syncbox{margin-left:22px;}
+    .panegrid{flex:1;display:grid;gap:4px;background:var(--bg);}
+    .pane-focus{border:2.5px solid var(--border-focus);}
+    .pane{border:2.5px solid #222;background:var(--panel);overflow:hidden;position:relative;}
+    .pane-controls{position:absolute;top:7px;right:8px;z-index:9;display:flex;gap:7px;}
+    .set-symbol-inp{font-size:14px;padding:1.5px 7px;border-radius:5px;border:1px solid #333;background:#222;color:#fff;min-width:75px;}
+    .pane-label{position:absolute;left:9px;top:6px;font-size:14px;z-index:99;background:var(--panel);color:#82b6fe;padding:3px 9px;border-radius:7px;cursor:grab;}
+    .pane-label.dragging{opacity:0.6;background:#111;}
+    .alerts-ui{position:absolute;bottom:7px;left:9px;right:9px;z-index:14;background:rgba(40,50,80,0.92);border-radius:7px;padding:7px;display:none;}
+    .pane-alerts-btn{background:#181c27;border:1px solid #2a3340;color:var(--accent);border-radius:5px;font-size:15px;cursor:pointer;padding:2px 7px;}
+    .alerts-ui.active{display:block;}
+    .alerts-list{max-height:55px;overflow:auto;font-size:13px;margin-bottom:5px;}
+    .alert-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+    .alert-remove{background:none;border:none;font-size:17px;color:#f96a6a;cursor:pointer;}
+    .alert-addbox{display:flex;gap:5px;margin-top:2px;}
+    .alert-addbox input{width:70px;font-size:13px;border-radius:5px;padding:0 5px 0 4px;}
+    /* Watchlist right panel */
+    .watchlist-panel{background:var(--panel);width:209px;min-width:155px;max-width:255px;border-left:2.5px solid #191a1f;display:flex;flex-direction:column;height:100%;padding:0;}
+    .wl-head{display:flex;align-items:center;justify-content:space-between;padding:8px 7px 5px 12px;}
+    .wl-title{font-size:16px;font-weight:700;}
+    .wl-addwl{background:#232b38;color:var(--accent);border:none;border-radius:6px;padding:2px 9px;font-size:18px;cursor:pointer;margin-left:8px;}
+    .wl-menu{font-size:17px;background:none;border:none;color:var(--accent);margin-left:8px;cursor:pointer;}
+    .watchlist-tabs{display:flex;gap:5px;padding:4px 10px;}
+    .watchlist-tab{background:var(--panel);border:none;color:#999;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:13px;}
+    .watchlist-tab.active,.watchlist-tab:hover{background:var(--accent);color:#fff;}
+    .watchlist-list{flex:1;overflow-y:auto;padding:6px 0 0 0;}
+    .watch-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0 7px 17px;cursor:pointer;border-bottom:1px solid #26282f;}
+    .watch-item span{flex:1;}
+    .watch-item.active{background-color:#292f44;}
+    .watch-item:hover{color:var(--accent);background:rgba(31,44,99,0.15);}
+    .add-watch-inp{margin:6px 13px 10px 15px;padding:4px 9px;border-radius:7px;border:1px solid #26282f;background:#232b38;color:#fff;}
+    .rembtn{font-size:16px;color:#f96a6a;background:none;border:none;margin-left:8px;cursor:pointer;padding:2px;}
+    @media (max-width:900px){.watchlist-panel{display:none;}}
+    @media (max-width:700px){.pane{border-width:1.5px;}}
   </style>
 </head>
 <body>
-  <div id="topbar">
-    <label>Symbol: 
-      <input id="symbol" value="EURUSD" style="width:90px;">
-    </label>
-    <button onclick="setSymbol()">Load Chart</button>
-    <label> Alert price: 
-      <input type="number" id="alertPrice" step="any" style="width:85px;">
-    </label>
-    <button onclick="addAlert()">Add Alert</button>
+<div class="layout">
+  <div class="main">
+    <div class="topbar">
+      <span class="app-title">PRO Multi-Pane WebTrader</span>
+      <div class="syncbox">
+        <label style="font-size:15px"><input type="checkbox" id="syncOn" onchange="toggleSync()" style="margin:0 4px 0 0;">Sync All Charts</label>
+      </div>
+      <div class="layout-switch">
+        <button class="layout-btn" id="btn1" onclick="setScreens(1)">1</button>
+        <button class="layout-btn" id="btn2" onclick="setScreens(2)">2</button>
+        <button class="layout-btn" id="btn2v" onclick="setScreens('2v')">2V</button>
+        <button class="layout-btn" id="btn4" onclick="setScreens(4)">4</button>
+      </div>
+    </div>
+    <div id="panegrid" class="panegrid"></div>
   </div>
-  <div id="alertlist">
-    <b>Your Alerts for <span id="currentSymbol" style="color:#f7b731">EURUSD</span>:</b>
-    <div id="alertsArea"></div>
+  <div class="watchlist-panel" id="watchPanel">
+    <div class="wl-head">
+      <span class="wl-title">Watchlists</span>
+      <button class="wl-addwl" onclick="addWatchlist()">+</button>
+    </div>
+    <div class="watchlist-tabs" id="watchlistTabs"></div>
+    <div class="watchlist-list" id="watchlistDiv"></div>
+    <input id="addWatchInp" class="add-watch-inp" placeholder="Add symbol..." onkeydown="if(event.key==='Enter')addToWatchlist()" />
   </div>
-  <!-- TradingView Advanced Chart Widget BEGIN -->
-  <div class="tradingview-widget-container" style="margin:24px 0 0 0;">
-    <div id="tradingview_chart" style="height:600px;"></div>
-  </div>
-  <!-- TradingView Advanced Chart Widget END -->
+</div>
+<script>
+// --- MULTIPLE WATCHLISTS SYSTEM ---
+let watchlists = JSON.parse(localStorage.getItem('multiwatchlists')||'null') || {
+  "Forex": ["EURUSD", "GBPUSD"],
+  "Crypto": ["BTCUSDT", "ETHUSDT"],
+  "Stocks": ["AAPL", "TSLA"]
+};
+let watchlistNames = Object.keys(watchlists);
+let currentWatchlist = localStorage.getItem('currentWatchlist') || watchlistNames[0];
+function saveWatchlists(){ localStorage.setItem('multiwatchlists',JSON.stringify(watchlists)); }
+function saveCurrentWatchlist(){ localStorage.setItem('currentWatchlist',currentWatchlist); }
 
-  <script>
-    let currentSymbol = "EURUSD";
-    let intervalId = null;
-    let alertData = {};
-    const priceAPI = {
-      forex: (base, quote) => `https://api.exchangerate.host/latest?base=${base}&symbols=${quote}`,
-      binance: (sym) => `https://api.binance.com/api/v3/ticker/price?symbol=${sym}`
-    };
-
-    function loadStoredAlerts() {
-      let saved = localStorage.getItem('alertData');
-      if (saved) alertData = JSON.parse(saved);
-    }
-    function saveStoredAlerts() {
-      localStorage.setItem('alertData', JSON.stringify(alertData));
-    }
-    function renderAlerts() {
-      let el = document.getElementById('alertsArea');
-      el.innerHTML = '';
-      (alertData[currentSymbol] || []).forEach((price, i) => {
-        let span = document.createElement('span');
-        span.className = 'alert-item';
-        span.textContent = price;
-        let rm = document.createElement('button');
-        rm.textContent = '×';
-        rm.className = 'remove-btn';
-        rm.onclick = () => removeAlert(i);
-        span.appendChild(rm);
-        el.appendChild(span);
-      });
-    }
-    function addAlert() {
-      let price = parseFloat(document.getElementById('alertPrice').value);
-      if (!price || isNaN(price)) { alert("Enter valid price!"); return; }
-      if (!alertData[currentSymbol]) alertData[currentSymbol] = [];
-      alertData[currentSymbol].push(price);
-      saveStoredAlerts();
-      renderAlerts();
-      document.getElementById('alertPrice').value = '';
-    }
-    function removeAlert(idx) {
-      alertData[currentSymbol].splice(idx,1);
-      saveStoredAlerts();
-      renderAlerts();
-    }
-    function setSymbol() {
-      currentSymbol = document.getElementById('symbol').value.toUpperCase();
-      document.getElementById('currentSymbol').innerText = currentSymbol;
-      renderAlerts();
-      document.getElementById('tradingview_chart').innerHTML = '';
-      loadChart(currentSymbol);
-    }
-    async function checkPrice() {
-      let sym = currentSymbol;
-      let price = null, isCrypto = false, base, quote, url;
-      if (sym.endsWith('USDT') || sym.startsWith('BTC') || sym.startsWith('ETH') || sym.startsWith('BNB')) {
-        url = priceAPI.binance(sym);
-        isCrypto = true;
-      } else if (/^[A-Z]{6}$/i.test(sym)) {
-        base = sym.slice(0,3);
-        quote = sym.slice(3,6);
-        url = priceAPI.forex(base, quote);
-      } else return;
-      try {
-        let res = await fetch(url);
-        let data = await res.json();
-        if (isCrypto) {
-          price = parseFloat(data.price);
-        } else {
-          price = data.rates[quote];
-        }
-      } catch (e) { price = null; }
-      if (!price) return;
-      (alertData[currentSymbol] || []).forEach((ap, i) => {
-        let diff = Math.abs(price - ap);
-        let thresh = price > 100 ? 0.05 : price > 10 ? 0.01 : 0.001;
-        if (diff < thresh) {
-          alert(`Price alert for ${currentSymbol}: ${price}`);
-          new Audio("https://www.soundjay.com/button/beep-07.wav").play();
-          window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${currentSymbol} price is ${price}`));
-          alertData[currentSymbol].splice(i,1);
-          saveStoredAlerts();
-          renderAlerts();
-        }
-      });
-    }
-    function loadChart(symbol) {
-      // Remove existing widget if any
-      if (document.getElementById('tradingview-script')) {
-        document.getElementById('tradingview-script').remove();
+function renderWatchlistTabs(){
+  let wtab = document.getElementById('watchlistTabs'); wtab.innerHTML = '';
+  Object.keys(watchlists).forEach((wl, idx)=>{
+    let btn = document.createElement('button');
+    btn.className='watchlist-tab'+(wl===currentWatchlist?' active':'');
+    btn.textContent=wl; btn.onclick=()=>{currentWatchlist=wl;saveCurrentWatchlist();renderWatchlistTabs();renderWatchlist();};
+    wtab.appendChild(btn);
+    // Edit/delete menu
+    let menu=document.createElement('button');
+    menu.className="wl-menu"; menu.title="Rename/Delete";
+    menu.innerHTML="☰";
+    menu.onclick=(e)=>{
+      e.stopPropagation();
+      let act = prompt("Type 'rename' to rename or 'delete' to remove this watchlist:");
+      if (act && act.toLowerCase() === "rename") {
+        let nwl = prompt("New watchlist name:"); if(!nwl||watchlists[nwl])return;
+        watchlists[nwl]=watchlists[wl]; delete watchlists[wl]; 
+        if(currentWatchlist===wl) currentWatchlist=nwl; saveWatchlists(); saveCurrentWatchlist(); renderWatchlistTabs(); renderWatchlist();
       }
-      let script = document.createElement('script');
-      script.id = 'tradingview-script';
-      script.type = 'text/javascript';
-      script.src = 'https://s3.tradingview.com/tv.js';
-      document.body.appendChild(script);
-      script.onload = function() {
-        new TradingView.widget({
-          "container_id": "tradingview_chart",
-          "width": "100%",
-          "height": 600,
-          "symbol": symbol,
-          "interval": "15",
-          "timezone": "Etc/UTC",
-          "theme": "dark",
-          "style": "1",
-          "locale": "en",
-          "toolbar_bg": "#23252e",
-          "saved_data": false,
-          "enable_publishing": false,
-          "allow_symbol_change": true,
-          "details": true,
-          "calendar": true,
-          "studies": [],
-          "withdateranges": true,
-          "hide_side_toolbar": false,
-          "show_popup_button": true,
-          "popup_width": "1000",
-          "popup_height": "650"
-        });
-      };
-    }
-    loadStoredAlerts();
-    renderAlerts();
-    loadChart(currentSymbol);
-    if (intervalId) clearInterval(intervalId);
-    intervalId = setInterval(checkPrice, 8000);
-    document.getElementById('symbol').addEventListener('change',function(){
-      currentSymbol = this.value.toUpperCase();
-      document.getElementById('currentSymbol').innerText = currentSymbol;
-      renderAlerts();
+      if (act && act.toLowerCase()==="delete" && Object.keys(watchlists).length>1) {
+        delete watchlists[wl];
+        if(currentWatchlist===wl)currentWatchlist=Object.keys(watchlists)[0];
+        saveWatchlists(); saveCurrentWatchlist(); renderWatchlistTabs(); renderWatchlist();
+      }
+    };
+    wtab.appendChild(menu);
+  });
+}
+function addWatchlist(){
+  let name=prompt("Watchlist name:"); if(!name||watchlists[name])return;
+  watchlists[name]=[]; currentWatchlist=name; saveWatchlists(); saveCurrentWatchlist(); renderWatchlistTabs(); renderWatchlist();
+}
+function renderWatchlist(){
+  let arr = watchlists[currentWatchlist]; let wdiv = document.getElementById('watchlistDiv'); wdiv.innerHTML='';
+  arr.forEach((sym,idx)=>{
+    let el = document.createElement('div');
+    el.className = 'watch-item';
+    el.innerHTML = `<span>${sym}</span><button class="rembtn" onclick="event.stopPropagation();removeFromWatch(${idx})">&times;</button>`;
+    el.onclick = ()=>applySymbolToActivePane(sym);
+    wdiv.appendChild(el);
+  });
+}
+function addToWatchlist(){
+  let v = document.getElementById('addWatchInp').value.trim().toUpperCase();
+  if(!v||watchlists[currentWatchlist].includes(v))return;
+  watchlists[currentWatchlist].push(v); saveWatchlists(); renderWatchlist(); document.getElementById('addWatchInp').value='';
+}
+function removeFromWatch(idx){
+  watchlists[currentWatchlist].splice(idx,1); saveWatchlists(); renderWatchlist();
+}
+
+// ------- MULTI-PANE/DRAG/SYNC/ALERTS -------
+let paneLayout = localStorage.getItem('paneset')||'1';
+let paneSyms = JSON.parse(localStorage.getItem('panesyms')||'null')||[watchlists[currentWatchlist][0]||"EURUSD"];
+let paneIntervals = JSON.parse(localStorage.getItem('paneints')||'null')||["15","15","15","15"];
+let alertsPerPane = JSON.parse(localStorage.getItem('alertsPerPane')||'null')||[[],[],[],[]];
+let activePane = 0;
+let syncMode = localStorage.getItem('syncOn')=="1";
+
+document.getElementById("syncOn").checked=syncMode;
+
+function setScreens(n){
+  paneLayout = n; localStorage.setItem('paneset',n);
+  let wlarr = watchlists[currentWatchlist];
+  let defaultSyms = wlarr.concat(["EURUSD","BTCUSDT","ETHUSDT"]).slice(0,4);
+  if(typeof n==="number"||n==="4") n=Number(n);
+  if(n===1) {paneSyms = [paneSyms[activePane]||defaultSyms]; paneIntervals=["15"];}
+  else if(n===2) {paneSyms = [paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1]]; paneIntervals=["15","15"];}
+  else if(n==="2v") {paneSyms = [paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1]]; paneIntervals=["15","15"];}
+  else if(n===4||n==="4") {paneSyms = [
+    paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1],
+    paneSyms||defaultSyms, paneSyms||defaultSyms
+  ]; paneIntervals=["15","15","15","15"];}
+  alertsPerPane.length = paneSyms.length;
+  for(let i=0;i<alertsPerPane.length;i++) alertsPerPane[i]=alertsPerPane[i]||[];
+  activePane=0; savePanes(); renderPanes();
+}
+function savePanes(){
+  localStorage.setItem('panesyms',JSON.stringify(paneSyms));
+  localStorage.setItem('paneints',JSON.stringify(paneIntervals));
+  localStorage.setItem('alertsPerPane',JSON.stringify(alertsPerPane));
+  localStorage.setItem('syncOn',syncMode?"1":"0");
+}
+function renderPanes(){
+  renderWatchlistTabs(); renderWatchlist();
+  ["btn1","btn2","btn2v","btn4"].forEach(id=>{
+    let b=document.getElementById(id); if(b) b.classList.remove("active");
+  });
+  if(paneLayout===1||paneLayout==="1")document.getElementById("btn1").classList.add("active");
+  if(paneLayout===2||paneLayout==="2")document.getElementById("btn2").classList.add("active");
+  if(paneLayout==="2v")document.getElementById("btn2v").classList.add("active");
+  if(paneLayout===4||paneLayout==="4")document.getElementById("btn4").classList.add("active");
+  let grid = document.getElementById('panegrid'); let layout=String(paneLayout); let n = layout==="2v" ? 2 : Number(layout);
+  grid.style.gridTemplateColumns = layout==="2v" ? "1fr 1fr" : (n>1?"1fr 1fr":"1fr");
+  grid.style.gridTemplateRows = (layout==="4") ? "1fr 1fr" : "1fr"; grid.innerHTML = '';
+  let count = (layout==="4") ? 4 : n;
+  for(let i=0;i<count;i++){
+    let pane = document.createElement('div');
+    pane.className='pane'+(i===activePane?' pane-focus':'');
+    pane.ondragover = ev => {ev.preventDefault(); pane.style.outline="2.5px solid var(--accent)";}
+    pane.ondragleave = () => pane.style.outline="";
+    pane.ondrop = ev => {
+      ev.preventDefault(); pane.style.outline="";
+      let from = Number(ev.dataTransfer.getData("frompane"));
+      let tempSym = paneSyms[from], tempInt = paneIntervals[from], tempAl = alertsPerPane[from];
+      paneSyms[from]=paneSyms[i]; paneIntervals[from]=paneIntervals[i]; alertsPerPane[from] = alertsPerPane[i];
+      paneSyms[i]=tempSym; paneIntervals[i]=tempInt; alertsPerPane[i]=tempAl;
+      savePanes(); renderPanes();
+    };
+    pane.onclick = ()=>{activePane=i; renderPanes();};
+    // DRAGGABLE LABEL
+    let label = document.createElement('div'); label.className='pane-label'; label.textContent=paneSyms[i]||"";
+    label.draggable=true;
+    label.ondragstart = ev=> { ev.dataTransfer.setData('frompane',i); label.classList.add("dragging"); };
+    label.ondragend = ()=> label.classList.remove("dragging");
+    pane.appendChild(label);
+    // CONTROLS
+    let cwrap = document.createElement('div'); cwrap.className='pane-controls';
+    let inp = document.createElement('input');
+    inp.type="text"; inp.value=paneSyms[i]||""; inp.className="set-symbol-inp";
+    inp.title="Type symbol and press Enter";
+    inp.onkeydown=(e)=>{if(e.key==='Enter'){setPaneSymbol(i,inp.value.toUpperCase());}};
+    cwrap.appendChild(inp);
+    let sel = document.createElement('select'); sel.className="set-symbol-inp";
+    ["1","3","5","15","30","60","D","W"].forEach(_int=>{
+      let o=document.createElement('option');o.value=_int;o.text=_int;sel.appendChild(o);
     });
-  </script>
+    sel.value=paneIntervals[i]; sel.onchange=()=>setPaneInterval(i,sel.value);
+    cwrap.appendChild(sel);
+    let abtn = document.createElement('button');
+    abtn.className='pane-alerts-btn'; abtn.textContent="🔔";
+    abtn.onclick=e=>{e.stopPropagation();toggleAlertsPanel(i);};
+    cwrap.appendChild(abtn);
+    pane.appendChild(cwrap);
+    // ALERTS UI
+    let alertsdiv = document.createElement('div'); alertsdiv.className='alerts-ui'+(alertsPerPane[i].open?" active":"");
+    let lst = document.createElement('div'); lst.className='alerts-list';
+    (alertsPerPane[i]||[]).filter(a=>typeof a==="number"||typeof a==="string").forEach((al,ai)=>{
+      let d=document.createElement('div');d.className="alert-item";d.textContent="Alert: "+al;
+      let del=document.createElement('button');del.className="alert-remove";del.textContent="×";
+      del.onclick=()=>{alertsPerPane[i].splice(ai,1);savePanes();renderPanes();};
+      d.appendChild(del); lst.appendChild(d);
+    });
+    alertsdiv.appendChild(lst);
+    let abox=document.createElement('div');abox.className='alert-addbox';
+    let alertInp=document.createElement('input');alertInp.placeholder='Alert Price';
+    alertInp.type='number'; abox.appendChild(alertInp);
+    let ok=document.createElement('button');ok.className='pane-alerts-btn';ok.textContent="Add";
+    ok.onclick=()=>{let v=parseFloat(alertInp.value); if(isNaN(v))return;alertsPerPane[i]=alertsPerPane[i]||[];alertsPerPane[i].push(v);savePanes();renderPanes();};
+    abox.appendChild(ok); alertsdiv.appendChild(abox);
+    pane.appendChild(alertsdiv);
+
+    // TV Chart Widget
+    let chartDiv = document.createElement('div'); chartDiv.id='tvchart'+i; chartDiv.style.height="calc(100% - 42px)";
+    pane.appendChild(chartDiv);
+    grid.appendChild(pane);
+    setTimeout(()=>loadTVWidget(i, paneSyms[i]||"EURUSD", paneIntervals[i]||"15"),220);
+  }
+}
+function setPaneSymbol(idx, sym){
+  paneSyms[idx]=sym; savePanes();
+  if(syncMode){ for(let k=0;k<paneSyms.length;k++)paneSyms[k]=sym; }
+  renderPanes();
+}
+function setPaneInterval(idx, _int){
+  paneIntervals[idx]=_int; savePanes();
+  if(syncMode){ for(let k=0;k<paneIntervals.length;k++)paneIntervals[k]=_int; }
+  renderPanes();
+}
+function applySymbolToActivePane(sym){
+  paneSyms[activePane]=sym; savePanes(); if(syncMode){ for(let k=0;k<paneSyms.length;k++)paneSyms[k]=sym; } renderPanes();
+}
+function toggleSync(){ syncMode = document.getElementById("syncOn").checked; savePanes(); renderPanes(); }
+function toggleAlertsPanel(idx){
+  alertsPerPane.forEach((_,i)=>{alertsPerPane[i].open=(i===idx ? !(alertsPerPane[i].open||false):false);});
+  renderPanes();
+}
+function loadTVWidget(idx, sym, _int){
+  let eid = 'tvchart'+idx;
+  let old = document.getElementById(eid+"-script");
+  if(old) old.remove();
+  let script=document.createElement('script'); script.type='text/javascript';
+  script.src='https://s3.tradingview.com/tv.js'; script.id=eid+"-script";
+  script.onload = function(){
+    new TradingView.widget({
+      container_id:eid,width:"100%",height:"99%",symbol:sym,interval:_int,timezone:"Etc/UTC",theme:"dark",style:"1",locale:"en",
+      toolbar_bg:"#181a20",enable_publishing:false,allow_symbol_change:false,details:true,calendar:true,studies:[],hide_side_toolbar:false,withdateranges:true
+    });
+  };
+  document.body.appendChild(script);
+}
+// --- Alerts checker (per pane) ---
+setInterval(async ()=>{
+  for(let i=0;i<paneSyms.length;i++){
+    let arr=(alertsPerPane[i]||[]).filter(a=>typeof a==="number");
+    if(!arr.length)continue;
+    let sym=paneSyms[i],p=null,url=null;
+    if(/USD|USDT|BTC|ETH/.test(sym))
+      url=`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`;
+    else if(/^[A-Z]{6}$/i.test(sym))
+      url=`https://api.exchangerate.host/latest?base=${sym.substring(0,3)}&symbols=${sym.substring(3,6)}`;
+    else continue;
+    try{let res=await fetch(url);let data=await res.json();p=(data.price)?parseFloat(data.price):(data.rates?sym.substring(3,6):null);}catch{}
+    if(!p)continue;
+    arr.forEach((ap,idx)=>{
+      let diff=Math.abs(p-ap),thresh=p>100?0.07:p>10?0.01:0.001;
+      if(diff<thresh){
+        alert(`${sym} hit pane alert at ${p}!`);
+        new Audio("https://www.soundjay.com/button/beep-07.wav").play();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${sym} price is ${p}`));
+        let realIdx=(alertsPerPane[i]||[]).indexOf(ap);
+        if(realIdx>-1)alertsPerPane[i].splice(realIdx,1);
+        savePanes();renderPanes();
+      }
+    });
+  }
+},7000);
+// -- Render on load
+setScreens(paneLayout); renderPanes();
+</script>
 </body>
 </html>
