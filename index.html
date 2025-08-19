@@ -23,15 +23,15 @@
     .set-symbol-inp{font-size:14px;padding:1.5px 7px;border-radius:5px;border:1px solid #333;background:#222;color:#fff;min-width:75px;}
     .pane-label{position:absolute;left:9px;top:6px;font-size:14px;z-index:99;background:var(--panel);color:#82b6fe;padding:3px 9px;border-radius:7px;cursor:grab;}
     .pane-label.dragging{opacity:0.6;background:#111;}
-    .alerts-ui{position:absolute;bottom:7px;left:9px;right:9px;z-index:14;background:rgba(40,50,80,0.87);border-radius:7px;padding:7px;display:none;}
-    .pane-alerts-btn{background:#181c27;border:1px solid #2a3340;color:var(--accent);border-radius:5px;font-size:15px;cursor:pointer;padding:2px 7px;}
-    .alerts-ui.active{display:block;}
-    .alerts-list{max-height:52px;overflow:auto;font-size:13px;margin-bottom:5px;}
-    .alert-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
-    .alert-remove{background:none;border:none;font-size:17px;color:#f96a6a;cursor:pointer;}
-    .alert-addbox{display:flex;gap:5px;margin-top:2px;}
-    .alert-addbox input{width:70px;font-size:13px;border-radius:5px;padding:0 5px 0 4px;}
-    /* NEW: Rightbar group - watchlist over alerts */
+    /* ALERT MODAL */
+    .alert-modal {
+      position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:99;
+      display:none;align-items:center;justify-content:center;
+    }
+    .alert-modal-content {
+      background:#1c222f;border-radius:13px;padding:25px 30px 22px 30px;box-shadow:0 12px 30px #000c;padding-top:20px;width:350px;text-align:center;
+    }
+    .alert-modal-content label {display:block;text-align:left;margin:10px 0 8px 5px;}
     .rightbar{background:var(--panel);width:242px;min-width:150px;max-width:270px;border-left:2.5px solid #191a1f;display:flex;flex-direction:column;height:100%;padding:0;box-shadow:-5px 0 12px #161a2066;}
     .watchlist-top{display:flex;align-items:center;justify-content:space-between;padding:8px 10px 3px 15px;}
     .wl-title{font-size:16px;font-weight:700;}
@@ -52,17 +52,8 @@
     .alertbar{border-top:1.5px solid #252732;padding:12px 11px 5px 16px;}
     .alert-label{font-weight:600;font-size:15px;}
     .alertbar-list{font-size:14px;max-height:77px;overflow-x:hidden;overflow-y:auto;}
-    .alertbar-item{color:var(--text);margin:1px 0;}
-    .alertbar-remove{color:#f96a6a;font-size:16px;background:none;border:none;margin-left:7px;}
-    /* ALERT MODAL */
-    .alert-modal {
-      position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.35);z-index:99;
-      display:none;align-items:center;justify-content:center;
-    }
-    .alert-modal-content {
-      background:#1c222f;border-radius:13px;padding:25px 30px 22px 30px;box-shadow:0 12px 30px #000c;padding-top:20px;width:350px;text-align:center;
-    }
-    .alert-modal-content label {display:block;text-align:left;margin:10px 0 8px 5px;}
+    .alertbar-item{color:var(--text);margin:1px 0;display:flex;align-items:center;justify-content:space-between;}
+    .alertbar-remove{color:#f96a6a;font-size:16px;background:none;border:none;margin-left:7px;cursor:pointer;}
     @media (max-width:900px){.rightbar{display:none;}}
     @media (max-width:700px){.pane{border-width:1.5px;}}
   </style>
@@ -117,12 +108,36 @@
     <label>Price:</label>
     <input id="alertModalPrice" type="number" style="width:140px;font-size:17px;margin-bottom:15px;">
     <br>
-    <button onclick="saveModalAlert()">Set Alert</button>
-    <button onclick="closeAlertModal()" style="margin-left:14px;">Cancel</button>
+    <button onclick="saveModalAlert()" type="button">Set Alert</button>
+    <button onclick="closeAlertModal()" style="margin-left:14px;" type="button">Cancel</button>
   </div>
 </div>
 
 <script>
+// ---- Notifications + Sound ----
+if ("Notification" in window && Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
+function playAlertSignal(symbol, price, alrt) {
+    try {
+        let beep = new Audio("https://www.soundjay.com/button/beep-07.wav");
+        beep.volume = 1.0;
+        beep.play();
+    } catch (e) {}
+    try {
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${symbol} alert: price is ${price}`));
+    } catch (e) {}
+    if ("Notification" in window && Notification.permission === "granted") {
+        let title = `${symbol} Price Alert!`;
+        let opts = {
+            body: `Price ${alrt.dir === "above" ? "crossed above" : "crossed below"} ${alrt.price}. Now: ${price}`,
+            icon: "https://img.icons8.com/color/96/000000/line-chart--v2.png"
+        };
+        try { new Notification(title, opts); } catch (e) {}
+    }
+}
+
+// ---- Multi Watchlists ----
 let watchlists = JSON.parse(localStorage.getItem('multiwatchlists')||'null') || {
   "Forex": ["EURUSD", "GBPUSD"],
   "Crypto": ["BTCUSDT", "ETHUSDT"],
@@ -174,7 +189,7 @@ function renderWatchlist(){
   arr.forEach((sym,idx)=>{
     let el = document.createElement('div');
     el.className = 'watch-item';
-    el.innerHTML = `<span>${sym}</span><button class="rembtn" onclick="event.stopPropagation();removeFromWatch(${idx})">&times;</button>`;
+    el.innerHTML = `<span>${sym}</span><button class="rembtn" type="button" onclick="event.stopPropagation();event.preventDefault();removeFromWatch(${idx});">×</button>`;
     el.onclick = ()=>applySymbolToActivePane(sym);
     wdiv.appendChild(el);
   });
@@ -202,7 +217,7 @@ function setScreens(n){
   let wlarr = watchlists[currentWatchlist];
   let defaultSyms = wlarr.concat(["EURUSD","BTCUSDT","ETHUSDT"]).slice(0,4);
   if(typeof n==="number"||n==="4") n=Number(n);
-  if(n===1) {paneSyms = [paneSyms[activePane]||defaultSyms]; paneIntervals=["15"];}
+  if(n===1) {paneSyms = [paneSyms[activePane]||defaultSyms[0]]; paneIntervals=["15"];}
   else if(n===2) {paneSyms = [paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1]]; paneIntervals=["15","15"];}
   else if(n==="2v") {paneSyms = [paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1]]; paneIntervals=["15","15"];}
   else if(n===4||n==="4") {paneSyms = [
@@ -266,7 +281,7 @@ function renderPanes(){
     sel.value=paneIntervals[i]; sel.onchange=()=>setPaneInterval(i,sel.value);
     cwrap.appendChild(sel);
     let abtn = document.createElement('button');
-    abtn.className='pane-alerts-btn'; abtn.textContent="🔔";
+    abtn.className='pane-alerts-btn'; abtn.textContent="🔔"; abtn.type="button";
     abtn.onclick = e => { e.stopPropagation(); openAlertModal(i); };
     cwrap.appendChild(abtn);
     pane.appendChild(cwrap);
@@ -319,8 +334,8 @@ function renderAlertsRightBar(){
     div.className='alertbar-item';
     div.textContent = txt;
     let x = document.createElement('button');
-    x.className="alertbar-remove"; x.textContent="×";
-    x.onclick=()=>{alertsPerPane[activePane].splice(idx,1);savePanes();renderPanes();};
+    x.className="alertbar-remove"; x.type="button"; x.textContent="×";
+    x.onclick=(e)=>{e.stopPropagation();e.preventDefault();alertsPerPane[activePane].splice(idx,1);savePanes();renderPanes();};
     div.appendChild(x); list.appendChild(div);
   });
 }
@@ -372,8 +387,7 @@ setInterval(async ()=>{
       if(typeof alrt === "number") return;
       if((alrt.dir==="above"&&p>alrt.price)||(alrt.dir==="below"&&p<alrt.price)){
         alert(`${sym} hit alert: ${alrt.dir==="above"?"crossed above":"crossed below"} ${alrt.price}, now ${p}`);
-        new Audio("https://www.soundjay.com/button/beep-07.wav").play();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${sym} price is ${p}`));
+        playAlertSignal(sym, p, alrt);
         alertsPerPane[i].splice(idx,1); savePanes(); renderPanes();
       }
     });
