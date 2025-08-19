@@ -136,4 +136,252 @@ function renderWatchlistTabs(){
   let wtab = document.getElementById('watchlistTabs'); wtab.innerHTML = '';
   Object.keys(watchlists).forEach((wl, idx)=>{
     let btn = document.createElement('button');
-    btn.className='watchlist-tab'+(wl===currentWatchlist
+    btn.className='watchlist-tab'+(wl===currentWatchlist?' active':'');
+    btn.textContent=wl; btn.onclick=()=>{currentWatchlist=wl;saveCurrentWatchlist();renderWatchlistTabs();renderWatchlist();};
+    wtab.appendChild(btn);
+  });
+}
+function addWatchlist() {
+  let name=prompt("Watchlist name:"); if(!name||watchlists[name])return;
+  watchlists[name]=[]; currentWatchlist=name; saveWatchlists(); saveCurrentWatchlist(); toggleWatchlistMenu(false); renderWatchlistTabs(); renderWatchlist();
+}
+function renameWatchlist() {
+  let nwl = prompt("Rename current watchlist", currentWatchlist);
+  if(!nwl||watchlists[nwl])return;
+  watchlists[nwl]=watchlists[currentWatchlist];
+  delete watchlists[currentWatchlist];
+  currentWatchlist = nwl; saveWatchlists(); saveCurrentWatchlist(); toggleWatchlistMenu(false); renderWatchlistTabs(); renderWatchlist();
+}
+function importWatchlist(){
+  let data = prompt("Paste comma/space/line separated symbol list:");
+  if(!data) return;
+  let arr = data.replace(/[\s,]+/g,",").split(",");
+  watchlists[currentWatchlist] = arr.filter(x=>x&&x.length>=3).map(x=>x.toUpperCase());
+  saveWatchlists(); renderWatchlist();
+  toggleWatchlistMenu(false);
+}
+function toggleWatchlistMenu(force) {
+  let el = document.getElementById('wlMenuPopup');
+  if(force===false){el.style.display="none"; return;}
+  el.style.display = (el.style.display==="none"||!el.style.display)?"block":"none";
+  setTimeout(()=>{window.onclick=function(e){
+    if(!el.contains(e.target) && e.target.className!=="wl-dotbtn"){el.style.display="none";window.onclick=null;}
+  }},100);
+}
+function promptAddSymbol(){toggleWatchlistMenu(false);document.getElementById('addWatchInp').focus();}
+function renderWatchlist(){
+  let arr = watchlists[currentWatchlist]; let wdiv = document.getElementById('watchlistDiv'); wdiv.innerHTML='';
+  arr.forEach((sym,idx)=>{
+    let el = document.createElement('div');
+    el.className = 'watch-item';
+    el.innerHTML = `<span>${sym}</span><button class="rembtn" onclick="event.stopPropagation();removeFromWatch(${idx})">&times;</button>`;
+    el.onclick = ()=>applySymbolToActivePane(sym);
+    wdiv.appendChild(el);
+  });
+}
+function addToWatchlist(){
+  let v = document.getElementById('addWatchInp').value.trim().toUpperCase();
+  if(!v||watchlists[currentWatchlist].includes(v))return;
+  watchlists[currentWatchlist].push(v); saveWatchlists(); renderWatchlist(); document.getElementById('addWatchInp').value='';
+}
+function removeFromWatch(idx){
+  watchlists[currentWatchlist].splice(idx,1); saveWatchlists(); renderWatchlist();
+}
+
+// ---- Multi-pane + alerts/sync/drag as before ----
+let paneLayout = localStorage.getItem('paneset')||'1';
+let paneSyms = JSON.parse(localStorage.getItem('panesyms')||'null')||[watchlists[currentWatchlist][0]||"EURUSD"];
+let paneIntervals = JSON.parse(localStorage.getItem('paneints')||'null')||["15","15","15","15"];
+let alertsPerPane = JSON.parse(localStorage.getItem('alertsPerPane')||'null')||[[],[],[],[]];
+let activePane = 0;
+let syncMode = localStorage.getItem('syncOn')=="1";
+document.getElementById("syncOn").checked=syncMode;
+
+function setScreens(n){
+  paneLayout = n; localStorage.setItem('paneset',n);
+  let wlarr = watchlists[currentWatchlist];
+  let defaultSyms = wlarr.concat(["EURUSD","BTCUSDT","ETHUSDT"]).slice(0,4);
+  if(typeof n==="number"||n==="4") n=Number(n);
+  if(n===1) {paneSyms = [paneSyms[activePane]||defaultSyms]; paneIntervals=["15"];}
+  else if(n===2) {paneSyms = [paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1]]; paneIntervals=["15","15"];}
+  else if(n==="2v") {paneSyms = [paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1]]; paneIntervals=["15","15"];}
+  else if(n===4||n==="4") {paneSyms = [
+    paneSyms||defaultSyms, paneSyms[1]||defaultSyms[1],
+    paneSyms||defaultSyms, paneSyms||defaultSyms
+  ]; paneIntervals=["15","15","15","15"];}
+  alertsPerPane.length = paneSyms.length;
+  for(let i=0;i<alertsPerPane.length;i++) alertsPerPane[i]=alertsPerPane[i]||[];
+  activePane=0; savePanes(); renderPanes();
+}
+function savePanes(){
+  localStorage.setItem('panesyms',JSON.stringify(paneSyms));
+  localStorage.setItem('paneints',JSON.stringify(paneIntervals));
+  localStorage.setItem('alertsPerPane',JSON.stringify(alertsPerPane));
+  localStorage.setItem('syncOn',syncMode?"1":"0");
+}
+function renderPanes(){
+  renderWatchlistTabs(); renderWatchlist(); renderAlertsRightBar();
+  ["btn1","btn2","btn2v","btn4"].forEach(id=>{
+    let b=document.getElementById(id); if(b) b.classList.remove("active");
+  });
+  if(paneLayout===1||paneLayout==="1")document.getElementById("btn1").classList.add("active");
+  if(paneLayout===2||paneLayout==="2")document.getElementById("btn2").classList.add("active");
+  if(paneLayout==="2v")document.getElementById("btn2v").classList.add("active");
+  if(paneLayout===4||paneLayout==="4")document.getElementById("btn4").classList.add("active");
+  let grid = document.getElementById('panegrid'); let layout=String(paneLayout); let n = layout==="2v" ? 2 : Number(layout);
+  grid.style.gridTemplateColumns = layout==="2v" ? "1fr 1fr" : (n>1?"1fr 1fr":"1fr");
+  grid.style.gridTemplateRows = (layout==="4") ? "1fr 1fr" : "1fr"; grid.innerHTML = '';
+  let count = (layout==="4") ? 4 : n;
+  for(let i=0;i<count;i++){
+    let pane = document.createElement('div');
+    pane.className='pane'+(i===activePane?' pane-focus':'');
+    pane.ondragover = ev => {ev.preventDefault(); pane.style.outline="2.5px solid var(--accent)";}
+    pane.ondragleave = () => pane.style.outline="";
+    pane.ondrop = ev => {
+      ev.preventDefault(); pane.style.outline="";
+      let from = Number(ev.dataTransfer.getData("frompane"));
+      let tempSym = paneSyms[from], tempInt = paneIntervals[from], tempAl = alertsPerPane[from];
+      paneSyms[from]=paneSyms[i]; paneIntervals[from]=paneIntervals[i]; alertsPerPane[from] = alertsPerPane[i];
+      paneSyms[i]=tempSym; paneIntervals[i]=tempInt; alertsPerPane[i]=tempAl;
+      savePanes(); renderPanes();
+    };
+    pane.onclick = ()=>{activePane=i; renderPanes();};
+    // DRAGGABLE LABEL
+    let label = document.createElement('div'); label.className='pane-label'; label.textContent=paneSyms[i]||"";
+    label.draggable=true;
+    label.ondragstart = ev=> { ev.dataTransfer.setData("frompane",i); label.classList.add("dragging"); };
+    label.ondragend = ()=> label.classList.remove("dragging");
+    pane.appendChild(label);
+    // CONTROLS
+    let cwrap = document.createElement('div'); cwrap.className='pane-controls';
+    let inp = document.createElement('input');
+    inp.type="text"; inp.value=paneSyms[i]||""; inp.className="set-symbol-inp";
+    inp.title="Type symbol and press Enter";
+    inp.onkeydown=(e)=>{if(e.key==='Enter'){setPaneSymbol(i,inp.value.toUpperCase());}};
+    cwrap.appendChild(inp);
+    let sel = document.createElement('select'); sel.className="set-symbol-inp";
+    ["1","3","5","15","30","60","D","W"].forEach(_int=>{
+      let o=document.createElement('option');o.value=_int;o.text=_int;sel.appendChild(o);
+    });
+    sel.value=paneIntervals[i]; sel.onchange=()=>setPaneInterval(i,sel.value);
+    cwrap.appendChild(sel);
+    let abtn = document.createElement('button');
+    abtn.className='pane-alerts-btn'; abtn.textContent="🔔";
+    abtn.onclick = e => { e.stopPropagation(); openAlertModal(i); };
+    cwrap.appendChild(abtn);
+    pane.appendChild(cwrap);
+    // TV Chart Widget
+    let chartDiv = document.createElement('div'); chartDiv.id='tvchart'+i; chartDiv.style.height="calc(100% - 42px)";
+    pane.appendChild(chartDiv);
+    grid.appendChild(pane);
+    setTimeout(()=>loadTVWidget(i, paneSyms[i]||"EURUSD", paneIntervals[i]||"15"),220);
+  }
+}
+function setPaneSymbol(idx, sym){
+  paneSyms[idx]=sym; savePanes();
+  if(syncMode){ for(let k=0;k<paneSyms.length;k++)paneSyms[k]=sym; }
+  renderPanes();
+}
+function setPaneInterval(idx, _int){
+  paneIntervals[idx]=_int; savePanes();
+  if(syncMode){ for(let k=0;k<paneIntervals.length;k++)paneIntervals[k]=_int; }
+  renderPanes();
+}
+function applySymbolToActivePane(sym){
+  paneSyms[activePane]=sym; savePanes(); if(syncMode){ for(let k=0;k<paneSyms.length;k++)paneSyms[k]=sym; } renderPanes();
+}
+function toggleSync(){ syncMode = document.getElementById("syncOn").checked; savePanes(); renderPanes(); }
+let modalPaneIdx = 0;
+function openAlertModal(idx){
+  modalPaneIdx = idx;
+  document.getElementById("alertModalPrice").value = "";
+  document.getElementById("alertModal").style.display = "flex";
+}
+function closeAlertModal(){
+  document.getElementById("alertModal").style.display = "none";
+}
+function saveModalAlert(){
+  let price = parseFloat(document.getElementById("alertModalPrice").value);
+  let dir = document.getElementById("alertDir").value;
+  if(isNaN(price)) return alert("Please enter a price!");
+  if(!alertsPerPane[modalPaneIdx]) alertsPerPane[modalPaneIdx]=[];
+  alertsPerPane[modalPaneIdx].push({type:"abovebelow", dir:dir, price:price});
+  closeAlertModal(); savePanes(); renderPanes();
+}
+function renderAlertsRightBar(){
+  let list = document.getElementById('rightAlertList');
+  list.innerHTML = '';
+  (alertsPerPane[activePane]||[]).forEach((alrt, idx)=>{
+    let txt = typeof alrt === "number"
+      ? `${paneSyms[activePane]}: ${alrt}` 
+      : `${paneSyms[activePane]}: ${alrt.dir === "above" ? "Above" : "Below"} ${alrt.price}`;
+    let div = document.createElement('div');
+    div.className='alertbar-item';
+    div.textContent = txt;
+    let x = document.createElement('button');
+    x.className="alertbar-remove"; x.textContent="×";
+    x.onclick=()=>{alertsPerPane[activePane].splice(idx,1);savePanes();renderPanes();};
+    div.appendChild(x); list.appendChild(div);
+  });
+}
+function toggleAlertsPanel(idx){
+  alertsPerPane.forEach((_,i)=>{alertsPerPane[i].open=(i===idx ? !(alertsPerPane[i].open||false):false);});
+  renderPanes();
+}
+function loadTVWidget(idx, sym, _int){
+  let eid = 'tvchart'+idx;
+  function createChart(){
+    new TradingView.widget({
+      container_id:eid,width:"100%",height:"99%",symbol:sym,interval:_int,timezone:"Etc/UTC",theme:"dark",style:"1",locale:"en",
+      toolbar_bg:"#181a1f",enable_publishing:false,allow_symbol_change:false,details:true,calendar:true,studies:[],hide_side_toolbar:false,withdateranges:true
+    });
+  }
+  if (typeof window.TradingView === "undefined") {
+    if (!window._tvjsLoading) {
+      window._tvjsLoading = true;
+      let script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.onload = function(){ window._tvjsLoading = false; createChart(); };
+      script.onerror = function(){
+        alert("TradingView chart library failed to load. Please check your internet connection.");
+      };
+      document.body.appendChild(script);
+    } else {
+      setTimeout(()=>loadTVWidget(idx, sym, _int), 250);
+    }
+  } else {
+    createChart();
+  }
+}
+
+// --- Alerts checker per pane ---
+setInterval(async ()=>{
+  for(let i=0;i<paneSyms.length;i++){
+    let arr=(alertsPerPane[i]||[]);
+    if(!arr.length)continue;
+    let sym=paneSyms[i],p=null,url=null;
+    if(/USD|USDT|BTC|ETH/.test(sym))
+      url=`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`;
+    else if(/^[A-Z]{6}$/i.test(sym))
+      url=`https://api.exchangerate.host/latest?base=${sym.substring(0,3)}&symbols=${sym.substring(3,6)}`;
+    else continue;
+    try{let res=await fetch(url);let data=await res.json();p=(data.price)?parseFloat(data.price):(data.rates?sym.substring(3,6):null);}catch{}
+    if(!p)continue;
+    arr.forEach((alrt,idx)=>{
+      if(typeof alrt === "number") return;
+      if((alrt.dir==="above"&&p>alrt.price)||(alrt.dir==="below"&&p<alrt.price)){
+        alert(`${sym} hit alert: ${alrt.dir==="above"?"crossed above":"crossed below"} ${alrt.price}, now ${p}`);
+        new Audio("https://www.soundjay.com/button/beep-07.wav").play();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${sym} price is ${p}`));
+        alertsPerPane[i].splice(idx,1); savePanes(); renderPanes();
+      }
+    });
+  }
+},7000);
+
+// -- Render on load
+setScreens(paneLayout); renderPanes();
+</script>
+</body>
+</html>
