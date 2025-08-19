@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pro Multi-Pane Trading with Watchlists</title>
+  <title>PRO Multi-Pane WebTrader</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root { --bg: #181a20; --panel: #20222b; --accent: #199cf4; --border-focus: #36e8b7; --text: #eee;}
-    html,body{height:100%;margin:0;padding:0;}
-    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;}
+    :root { --bg: #181a20; --panel: #20222b; --accent: #199cf4; --border-focus: #36e8b7; --text: #eee; }
+    html, body {height:100%;margin:0;padding:0;}
+    body {background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;}
     .layout{display:flex;height:100vh;}
     .main{flex:1;display:flex;flex-direction:column;}
     .topbar{display:flex;align-items:center;gap:22px;padding:14px 18px 8px 22px;background:var(--panel);}
@@ -23,31 +23,38 @@
     .set-symbol-inp{font-size:14px;padding:1.5px 7px;border-radius:5px;border:1px solid #333;background:#222;color:#fff;min-width:75px;}
     .pane-label{position:absolute;left:9px;top:6px;font-size:14px;z-index:99;background:var(--panel);color:#82b6fe;padding:3px 9px;border-radius:7px;cursor:grab;}
     .pane-label.dragging{opacity:0.6;background:#111;}
-    .alerts-ui{position:absolute;bottom:7px;left:9px;right:9px;z-index:14;background:rgba(40,50,80,0.92);border-radius:7px;padding:7px;display:none;}
+    .alerts-ui{position:absolute;bottom:7px;left:9px;right:9px;z-index:14;background:rgba(40,50,80,0.87);border-radius:7px;padding:7px;display:none;}
     .pane-alerts-btn{background:#181c27;border:1px solid #2a3340;color:var(--accent);border-radius:5px;font-size:15px;cursor:pointer;padding:2px 7px;}
     .alerts-ui.active{display:block;}
-    .alerts-list{max-height:55px;overflow:auto;font-size:13px;margin-bottom:5px;}
+    .alerts-list{max-height:52px;overflow:auto;font-size:13px;margin-bottom:5px;}
     .alert-item{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
     .alert-remove{background:none;border:none;font-size:17px;color:#f96a6a;cursor:pointer;}
     .alert-addbox{display:flex;gap:5px;margin-top:2px;}
     .alert-addbox input{width:70px;font-size:13px;border-radius:5px;padding:0 5px 0 4px;}
-    /* Watchlist right panel */
-    .watchlist-panel{background:var(--panel);width:209px;min-width:155px;max-width:255px;border-left:2.5px solid #191a1f;display:flex;flex-direction:column;height:100%;padding:0;}
-    .wl-head{display:flex;align-items:center;justify-content:space-between;padding:8px 7px 5px 12px;}
+    /* NEW: Rightbar group - watchlist over alerts */
+    .rightbar{background:var(--panel);width:242px;min-width:150px;max-width:270px;border-left:2.5px solid #191a1f;display:flex;flex-direction:column;height:100%;padding:0;box-shadow:-5px 0 12px #161a2066;}
+    .watchlist-top{display:flex;align-items:center;justify-content:space-between;padding:8px 10px 3px 15px;}
     .wl-title{font-size:16px;font-weight:700;}
-    .wl-addwl{background:#232b38;color:var(--accent);border:none;border-radius:6px;padding:2px 9px;font-size:18px;cursor:pointer;margin-left:8px;}
-    .wl-menu{font-size:17px;background:none;border:none;color:var(--accent);margin-left:8px;cursor:pointer;}
-    .watchlist-tabs{display:flex;gap:5px;padding:4px 10px;}
+    .wl-dotbtn{background:none;border:none;font-size:22px;color:var(--accent);cursor:pointer;margin-left:7px;}
+    .watchlisttabs{display:flex;gap:5px;padding:0 10px 6px;}
     .watchlist-tab{background:var(--panel);border:none;color:#999;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:13px;}
     .watchlist-tab.active,.watchlist-tab:hover{background:var(--accent);color:#fff;}
-    .watchlist-list{flex:1;overflow-y:auto;padding:6px 0 0 0;}
-    .watch-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0 7px 17px;cursor:pointer;border-bottom:1px solid #26282f;}
+    .wl-menu-popup{position:absolute;top:38px;right:24px;background:#242b36;border-radius:9px;box-shadow:0 7px 24px #111a2f77;z-index:21;width:170px;}
+    .wl-menu-popup button{display:block;width:100%;padding:10px;text-align:left;background:none;border:none;color:#eee;font-size:15px;cursor:pointer;}
+    .wl-menu-popup button:hover{background:#223352;}
+    .watchlist-list{flex:1;overflow-y:auto;padding:0 4px 2px 10px;}
+    .watch-item{display:flex;align-items:center;justify-content:space-between;padding:7px 0 7px 9px;cursor:pointer;border-bottom:1px solid #26282f;}
     .watch-item span{flex:1;}
     .watch-item.active{background-color:#292f44;}
-    .watch-item:hover{color:var(--accent);background:rgba(31,44,99,0.15);}
-    .add-watch-inp{margin:6px 13px 10px 15px;padding:4px 9px;border-radius:7px;border:1px solid #26282f;background:#232b38;color:#fff;}
+    .watch-item:hover{color:var(--accent);background:rgba(31,44,99,0.14);}
+    .add-watch-inp{margin:7px 10px 12px 14px;padding:4px 9px;border-radius:7px;border:1px solid #26282f;background:#232b38;color:#fff;}
     .rembtn{font-size:16px;color:#f96a6a;background:none;border:none;margin-left:8px;cursor:pointer;padding:2px;}
-    @media (max-width:900px){.watchlist-panel{display:none;}}
+    .alertbar{border-top:1.5px solid #252732;padding:12px 11px 5px 16px;}
+    .alert-label{font-weight:600;font-size:15px;}
+    .alertbar-list{font-size:14px;max-height:77px;overflow-x:hidden;overflow-y:auto;}
+    .alertbar-item{color:var(--text);margin:1px 0;}
+    .alertbar-remove{color:#f96a6a;font-size:16px;background:none;border:none;margin-left:7px;}
+    @media (max-width:900px){.rightbar{display:none;}}
     @media (max-width:700px){.pane{border-width:1.5px;}}
   </style>
 </head>
@@ -68,18 +75,27 @@
     </div>
     <div id="panegrid" class="panegrid"></div>
   </div>
-  <div class="watchlist-panel" id="watchPanel">
-    <div class="wl-head">
-      <span class="wl-title">Watchlists</span>
-      <button class="wl-addwl" onclick="addWatchlist()">+</button>
+  <div class="rightbar" id="rightbar">
+    <div class="watchlist-top">
+      <span class="wl-title">Watchlist</span>
+      <button class="wl-dotbtn" onclick="toggleWatchlistMenu()">⋮</button>
+      <div id="wlMenuPopup" class="wl-menu-popup" style="display:none;">
+        <button onclick="addWatchlist()">Create New Watchlist</button>
+        <button onclick="promptAddSymbol()">Add Symbol</button>
+        <button onclick="renameWatchlist()">Rename Watchlist</button>
+        <button onclick="importWatchlist()">Import List</button>
+      </div>
     </div>
-    <div class="watchlist-tabs" id="watchlistTabs"></div>
+    <div class="watchlisttabs" id="watchlistTabs"></div>
     <div class="watchlist-list" id="watchlistDiv"></div>
     <input id="addWatchInp" class="add-watch-inp" placeholder="Add symbol..." onkeydown="if(event.key==='Enter')addToWatchlist()" />
+    <div class="alertbar">
+      <div class="alert-label">My Alerts</div>
+      <div class="alertbar-list" id="rightAlertList"></div>
+    </div>
   </div>
 </div>
 <script>
-// --- MULTIPLE WATCHLISTS SYSTEM ---
 let watchlists = JSON.parse(localStorage.getItem('multiwatchlists')||'null') || {
   "Forex": ["EURUSD", "GBPUSD"],
   "Crypto": ["BTCUSDT", "ETHUSDT"],
@@ -89,7 +105,6 @@ let watchlistNames = Object.keys(watchlists);
 let currentWatchlist = localStorage.getItem('currentWatchlist') || watchlistNames[0];
 function saveWatchlists(){ localStorage.setItem('multiwatchlists',JSON.stringify(watchlists)); }
 function saveCurrentWatchlist(){ localStorage.setItem('currentWatchlist',currentWatchlist); }
-
 function renderWatchlistTabs(){
   let wtab = document.getElementById('watchlistTabs'); wtab.innerHTML = '';
   Object.keys(watchlists).forEach((wl, idx)=>{
@@ -97,31 +112,37 @@ function renderWatchlistTabs(){
     btn.className='watchlist-tab'+(wl===currentWatchlist?' active':'');
     btn.textContent=wl; btn.onclick=()=>{currentWatchlist=wl;saveCurrentWatchlist();renderWatchlistTabs();renderWatchlist();};
     wtab.appendChild(btn);
-    // Edit/delete menu
-    let menu=document.createElement('button');
-    menu.className="wl-menu"; menu.title="Rename/Delete";
-    menu.innerHTML="☰";
-    menu.onclick=(e)=>{
-      e.stopPropagation();
-      let act = prompt("Type 'rename' to rename or 'delete' to remove this watchlist:");
-      if (act && act.toLowerCase() === "rename") {
-        let nwl = prompt("New watchlist name:"); if(!nwl||watchlists[nwl])return;
-        watchlists[nwl]=watchlists[wl]; delete watchlists[wl]; 
-        if(currentWatchlist===wl) currentWatchlist=nwl; saveWatchlists(); saveCurrentWatchlist(); renderWatchlistTabs(); renderWatchlist();
-      }
-      if (act && act.toLowerCase()==="delete" && Object.keys(watchlists).length>1) {
-        delete watchlists[wl];
-        if(currentWatchlist===wl)currentWatchlist=Object.keys(watchlists)[0];
-        saveWatchlists(); saveCurrentWatchlist(); renderWatchlistTabs(); renderWatchlist();
-      }
-    };
-    wtab.appendChild(menu);
   });
 }
-function addWatchlist(){
+function addWatchlist() {
   let name=prompt("Watchlist name:"); if(!name||watchlists[name])return;
-  watchlists[name]=[]; currentWatchlist=name; saveWatchlists(); saveCurrentWatchlist(); renderWatchlistTabs(); renderWatchlist();
+  watchlists[name]=[]; currentWatchlist=name; saveWatchlists(); saveCurrentWatchlist(); toggleWatchlistMenu(false); renderWatchlistTabs(); renderWatchlist();
 }
+function renameWatchlist() {
+  let nwl = prompt("Rename current watchlist", currentWatchlist);
+  if(!nwl||watchlists[nwl])return;
+  watchlists[nwl]=watchlists[currentWatchlist];
+  delete watchlists[currentWatchlist];
+  currentWatchlist = nwl; saveWatchlists(); saveCurrentWatchlist(); toggleWatchlistMenu(false); renderWatchlistTabs(); renderWatchlist();
+}
+function importWatchlist(){
+  let data = prompt("Paste comma/space/line separated symbol list:");
+  if(!data) return;
+  let arr = data.replace(/[\s,]+/g,",").split(",");
+  watchlists[currentWatchlist] = arr.filter(x=>x&&x.length>=3).map(x=>x.toUpperCase());
+  saveWatchlists(); renderWatchlist();
+  toggleWatchlistMenu(false);
+}
+function toggleWatchlistMenu(force) {
+  let el = document.getElementById('wlMenuPopup');
+  if(force===false){el.style.display="none"; return;}
+  el.style.display = (el.style.display==="none"||!el.style.display)?"block":"none";
+  setTimeout(()=>{window.onclick=function(e){
+    if(!el.contains(e.target) && e.target.className!=="wl-dotbtn"){el.style.display="none";window.onclick=null;}
+  }},100);
+}
+function promptAddSymbol(){toggleWatchlistMenu(false);document.getElementById('addWatchInp').focus();}
+
 function renderWatchlist(){
   let arr = watchlists[currentWatchlist]; let wdiv = document.getElementById('watchlistDiv'); wdiv.innerHTML='';
   arr.forEach((sym,idx)=>{
@@ -141,14 +162,13 @@ function removeFromWatch(idx){
   watchlists[currentWatchlist].splice(idx,1); saveWatchlists(); renderWatchlist();
 }
 
-// ------- MULTI-PANE/DRAG/SYNC/ALERTS -------
+// ---- Multi-pane + alerts/sync/drag as before ----
 let paneLayout = localStorage.getItem('paneset')||'1';
 let paneSyms = JSON.parse(localStorage.getItem('panesyms')||'null')||[watchlists[currentWatchlist][0]||"EURUSD"];
 let paneIntervals = JSON.parse(localStorage.getItem('paneints')||'null')||["15","15","15","15"];
 let alertsPerPane = JSON.parse(localStorage.getItem('alertsPerPane')||'null')||[[],[],[],[]];
 let activePane = 0;
 let syncMode = localStorage.getItem('syncOn')=="1";
-
 document.getElementById("syncOn").checked=syncMode;
 
 function setScreens(n){
@@ -174,7 +194,7 @@ function savePanes(){
   localStorage.setItem('syncOn',syncMode?"1":"0");
 }
 function renderPanes(){
-  renderWatchlistTabs(); renderWatchlist();
+  renderWatchlistTabs(); renderWatchlist(); renderAlertsRightBar();
   ["btn1","btn2","btn2v","btn4"].forEach(id=>{
     let b=document.getElementById(id); if(b) b.classList.remove("active");
   });
@@ -269,19 +289,31 @@ function toggleAlertsPanel(idx){
 }
 function loadTVWidget(idx, sym, _int){
   let eid = 'tvchart'+idx;
-  let old = document.getElementById(eid+"-script");
-  if(old) old.remove();
-  let script=document.createElement('script'); script.type='text/javascript';
-  script.src='https://s3.tradingview.com/tv.js'; script.id=eid+"-script";
-  script.onload = function(){
+  function createChart(){
     new TradingView.widget({
       container_id:eid,width:"100%",height:"99%",symbol:sym,interval:_int,timezone:"Etc/UTC",theme:"dark",style:"1",locale:"en",
-      toolbar_bg:"#181a20",enable_publishing:false,allow_symbol_change:false,details:true,calendar:true,studies:[],hide_side_toolbar:false,withdateranges:true
+      toolbar_bg:"#181a1f",enable_publishing:false,allow_symbol_change:false,details:true,calendar:true,studies:[],hide_side_toolbar:false,withdateranges:true
     });
-  };
-  document.body.appendChild(script);
+  }
+  if (typeof window.TradingView === "undefined") {
+    if (!window._tvjsLoading) {
+      window._tvjsLoading = true;
+      let script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.onload = function(){ window._tvjsLoading = false; createChart(); };
+      script.onerror = function(){
+        alert("TradingView chart library failed to load. Please check your internet connection.");
+      };
+      document.body.appendChild(script);
+    } else {
+      setTimeout(()=>loadTVWidget(idx, sym, _int), 250);
+    }
+  } else {
+    createChart();
+  }
 }
-// --- Alerts checker (per pane) ---
+// --- Alerts checker per pane ---
 setInterval(async ()=>{
   for(let i=0;i<paneSyms.length;i++){
     let arr=(alertsPerPane[i]||[]).filter(a=>typeof a==="number");
@@ -307,6 +339,21 @@ setInterval(async ()=>{
     });
   }
 },7000);
+
+function renderAlertsRightBar(){
+  let list = document.getElementById('rightAlertList');
+  list.innerHTML = '';
+  (alertsPerPane[activePane]||[]).filter(a=>typeof a==="number").forEach((alert, idx)=>{
+    let div = document.createElement('div');
+    div.className='alertbar-item';
+    div.textContent = paneSyms[activePane]+": "+alert;
+    let x = document.createElement('button');
+    x.className="alertbar-remove";
+    x.textContent="×";
+    x.onclick=()=>{alertsPerPane[activePane].splice(idx,1);savePanes();renderPanes();};
+    div.appendChild(x); list.appendChild(div);
+  });
+}
 // -- Render on load
 setScreens(paneLayout); renderPanes();
 </script>
